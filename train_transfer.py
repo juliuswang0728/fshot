@@ -18,12 +18,19 @@ from networks.metric import TransferNetMetrics
 from checkpoint import Checkpointer
 
 
+if torch.cuda.is_available():
+    device = "cuda:0"
+else:
+    device = "cpu"
+
+
 def do_eval(cfg, model, dataloader, epoch, logger):
     logger.info('Start evaluating at epoch {}'.format(epoch))
-
     val_metrics = TransferNetMetrics(cfg)
+
+    model.eval()
     for iteration, data in enumerate(dataloader):
-        inputs, targets = data['image'], data['label_articleType']
+        inputs, targets = data['image'].to(device), data['label_articleType'].to(device)
         cls_scores = model(inputs, targets)
         val_metrics.accumulated_update(cls_scores, targets)
 
@@ -35,7 +42,7 @@ def do_eval(cfg, model, dataloader, epoch, logger):
 
 
 
-def do_train(cfg, model, train_dataloader, val_dataloader, logger):
+def do_train(cfg, model, train_dataloader, val_dataloader, logger, train_num_images, val_num_images):
     # define optimizer
     if cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR_BASE,
@@ -65,10 +72,11 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger):
 
     for epoch in range(start_epoch, cfg.TRAIN.MAX_EPOCH + 1):
         training_args['epoch'] = epoch
+        model.train()
         for inner_iter, data in enumerate(train_dataloader):
             #training_args['iteration'] = iteration
             data_time = time.time() - end
-            inputs, targets = data['image'], data['label_articleType']
+            inputs, targets = data['image'].to(device), data['label_articleType'].to(device)
             cls_scores = model(inputs, targets)
             losses = model.loss_evaluator(cls_scores, targets)
             metrics = model.metric_evaluator(cls_scores, targets)
@@ -84,16 +92,16 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger):
             end = time.time()
             meters.update(time=batch_time, data=data_time)
 
-            eta_seconds = meters.time.global_avg * (len(train_dataloader) * cfg.TRAIN.BATCH_SIZE -
-                                                    (epoch - 1) * cfg.TRAIN.BATCH_SIZE - inner_iter)
-            eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-
             if inner_iter % cfg.TRAIN.PRINT_PERIOD == 0:
+                eta_seconds = meters.time.global_avg * (len(train_dataloader) * cfg.TRAIN.MAX_EPOCH -
+                                                        (epoch - 1) * len(train_dataloader) - inner_iter)
+                eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+
                 logger.info(
                     meters.delimiter.join(
                         [
                             "eta: {eta}",
-                            "epoch: {ep}/{max_ep} (iter: {iter})",
+                            "epoch: {ep}/{max_ep} (iter: {iter}/{max_iter})",
                             "{meters}",
                             "lr: {lr:.6f}",
                             "max mem: {memory:.0f}",
@@ -103,6 +111,7 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger):
                         ep=epoch,
                         max_ep=cfg.TRAIN.MAX_EPOCH,
                         iter=inner_iter,
+                        max_iter=len(train_dataloader),
                         meters=str(meters),
                         lr=optimizer.param_groups[-1]["lr"],
                         memory=(torch.cuda.max_memory_allocated() / 1024.0 / 1024.0) if torch.cuda.is_available() else 0.,
@@ -144,8 +153,7 @@ def main():
 
     np.random.seed(1234)
     torch.manual_seed(1234)
-    use_cuda = torch.cuda.is_available()
-    if use_cuda:
+    if 'cuda' in device:
         torch.cuda.manual_seed_all(1234)
 
     if not os.path.exists(cfg.OUTPUT_DIR):
@@ -177,10 +185,9 @@ def main():
     #test_dataloader = DataLoader(test_dataset, **test_dataset.params)
 
     model = TransferNet(cfg, cfg.TRAIN.NUM_CLASSES, logger)
-    if use_cuda:
-        model.cuda()
+    model.to(device)
 
-    do_train(cfg, model, train_dataloader, val_dataloader, logger)
+    do_train(cfg, model, train_dataloader, val_dataloader, logger, train_dataset.num_images, val_dataset.num_images)
 
 if __name__ == "__main__":
     main()
