@@ -1,0 +1,15 @@
+DATALOADER:
+  DEBUG: True
+  FP_DATASET:
+    ROOTDIR: ./data/fashion-product-images-small
+    VAL_DATA_FRACTION: 0.2
+MODEL:
+  CONV_BODY:
+    ARCH: res50
+TRAIN:
+  SHUFFLE: True
+  MAX_EPOCH: 10
+  BATCH_SIZE: 8
+  SAVE_CKPT_EPOCH: 2
+  VAL_EPOCH: 2
+OUTPUT_DIR: './checkpoints/base_res50'

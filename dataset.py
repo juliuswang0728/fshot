@@ -5,6 +5,8 @@ import re
 import torch
 import pandas as pd
 from skimage import io, transform
+from skimage.color import gray2rgb
+import torchvision.transforms as transforms
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
@@ -15,7 +17,7 @@ VAL = 'val'
 TEST = 'test'
 
 class FashionProductImages(Dataset):
-    def __init__(self, cfg, split, transform=None, logger=None, random_state=1234):
+    def __init__(self, cfg, split, logger=None, random_state=1234):
         """
         For trasnfer learning task, data with even years will be used as training set,
         those with odd years will be used as the test set.
@@ -43,7 +45,12 @@ class FashionProductImages(Dataset):
         self.test_meta = None
         self.val_frac = self.cfg.DATALOADER.FP_DATASET.VAL_DATA_FRACTION
 
-        self.transform = transform
+        self.transform = transforms.Compose([transforms.ToPILImage(),
+                                             transforms.RandomHorizontalFlip(p=0.5),
+                                             transforms.ToTensor(),
+                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                  std=[0.229, 0.224, 0.225]),
+                                             ])
         self.split = split    # 'train', 'val', 'test'
         self.random_state = random_state
 
@@ -69,18 +76,16 @@ class FashionProductImages(Dataset):
         id = self.meta.iloc[idx]['id']
         img_name = os.path.join(self.imgroot, '{}.jpg'.format(id))
         image = io.imread(img_name)
-        if image.ndim == 3:
-            image = np.array(image.transpose(2, 0, 1))
-        elif image.ndim == 2:
-            image = np.stack([image] * 3, axis=0)
-        else:
-            raise RuntimeError
-        sample = {col: self.meta.iloc[idx][col] for col in self.meta.columns}
-        sample.update({'image': np.array(image),
-                       'label_articleType': self.target_classes[sample['articleType']]})
+
+        if image.ndim == 2:
+            image = gray2rgb(image)
 
         if self.transform:
-            sample = self.transform(sample)
+            image = self.transform(image)
+
+        sample = {col: self.meta.iloc[idx][col] for col in self.meta.columns}
+        sample.update({'image': image,
+                       'label_articleType': self.target_classes[sample['articleType']]})
 
         return sample
 
@@ -129,7 +134,7 @@ class FashionProductImages(Dataset):
 
         self.logger.info('preparing {} data...'.format(split))
         if split == TRAIN or split == VAL:
-            meta = self.meta.loc[self.meta['year'] % 2 == 0]
+            meta = self.meta.loc[self.meta['year'] % 2 == 0]    # even year
             meta = meta[meta['articleType'].isin(target_classes)]
             train_meta, val_meta = train_test_split(meta, test_size=self.val_frac, shuffle=True,
                                                     random_state=self.random_state)
@@ -138,9 +143,11 @@ class FashionProductImages(Dataset):
             else:
                 self.meta = val_meta
         elif split == TEST:
-            meta = self.meta.loc[self.meta['year'] % 2 == 1]
+            meta = self.meta.loc[self.meta['year'] % 2 == 1]    # odd year
             self.meta = meta[meta['articleType'].isin(target_classes)]
         else:
             raise NotImplementedError
 
         self.target_classes = {cls: i for i, cls in enumerate(target_classes)}
+        if self.cfg.DATALOADER.DEBUG:
+            self.meta = self.meta[0:100]
