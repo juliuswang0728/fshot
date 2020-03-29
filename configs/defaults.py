@@ -14,7 +14,8 @@ _C.MODEL = CN()
 # -----------------------------------------------------------------------------
 _C.INPUT = CN()
 # Size of the smallest side of the image during training
-_C.INPUT.MIN_SIZE = 900
+_C.INPUT.HEIGHT = 600
+_C.INPUT.WIDTH = 400
 # Values to be used for image normalization
 _C.INPUT.PIXEL_MEAN = [0.485, 0.456, 0.406]
 # Values to be used for image normalization

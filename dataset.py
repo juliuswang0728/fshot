@@ -1,6 +1,7 @@
 import os
 from io import StringIO
 import re
+import json
 
 import torch
 import pandas as pd
@@ -47,7 +48,7 @@ class FashionProductImages(Dataset):
 
         if split == TRAIN:
             self.transform = transforms.Compose([transforms.ToPILImage(),
-                                                 transforms.Resize(cfg.INPUT.MIN_SIZE),
+                                                 transforms.Resize((cfg.INPUT.HEIGHT, cfg.INPUT.WIDTH)),
                                                  transforms.RandomHorizontalFlip(p=0.5),
                                                  transforms.ToTensor(),
                                                  transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -55,7 +56,7 @@ class FashionProductImages(Dataset):
                                                  ])
         else:
             self.transform = transforms.Compose([transforms.ToPILImage(),
-                                                 transforms.Resize(cfg.INPUT.MIN_SIZE),
+                                                 transforms.Resize((cfg.INPUT.HEIGHT, cfg.INPUT.WIDTH)),
                                                  transforms.ToTensor(),
                                                  transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                                       std=[0.229, 0.224, 0.225]),
@@ -161,3 +162,8 @@ class FashionProductImages(Dataset):
         self.target_classes = {cls: i for i, cls in enumerate(target_classes)}
         if self.cfg.DATALOADER.DEBUG:
             self.meta = self.meta[0:100]
+
+        stats = self.meta.groupby('articleType')['id'].count().sort_values(ascending=False)[0:self.topk].to_dict()
+        self.num_images = sum(stats.values())
+        self.logger.info('data stats:\n{}'.format(json.dumps(stats)))
+        self.logger.info('number of images: {}'.format(self.num_images))
