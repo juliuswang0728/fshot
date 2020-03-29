@@ -31,6 +31,8 @@ def do_eval(cfg, model, dataloader, epoch, logger):
     logger.info('val overall acc: {:.4f}, mean class acc: {:.4f}'.format(val_metrics.overall_class_accuracy,
                                                                          val_metrics.mean_class_accuracy))
 
+    return val_metrics
+
 
 
 def do_train(cfg, model, train_dataloader, val_dataloader, logger):
@@ -48,12 +50,15 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger):
     training_args = {}
     #training_args['iteration'] = 1
     training_args['epoch'] = 1
+    training_args['val_best'] = 0.
     if checkpointer.has_checkpoint():
         extra_checkpoint_data = checkpointer.load()
         training_args.update(extra_checkpoint_data)
 
     #start_iter = training_args['iteration']
     start_epoch = training_args['epoch']
+    checkpointer.current_val_best = training_args['val_best']
+
     meters = MetricLogger(delimiter="  ")
     end = time.time()
     start_training_time = time.time()
@@ -104,12 +109,15 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger):
                     )
                 )
 
+        if epoch % cfg.TRAIN.VAL_EPOCH == 0:
+            val_metrics = do_eval(cfg, model, val_dataloader, epoch, logger)
+            if val_metrics.mean_class_accuracy > checkpointer.current_val_best:
+                checkpointer.current_val_best = val_metrics.mean_class_accuracy
+                training_args['val_best'] = checkpointer.current_val_best
+                checkpointer.save("model_{:04d}_val_{:.4f}".format(epoch, checkpointer.current_val_best), **training_args)
 
         if epoch == cfg.TRAIN.MAX_EPOCH or epoch % cfg.TRAIN.SAVE_CKPT_EPOCH == 0:
             checkpointer.save("model_{:04d}".format(epoch), **training_args)
-
-        if epoch % cfg.TRAIN.VAL_EPOCH == 0:
-            do_eval(cfg, model, val_dataloader, epoch, logger)
 
         if epoch % cfg.TRAIN.LR_DECAY_EPOCH == 0:
             logger.info("lr decayed to {:.4f}".format(optimizer.param_groups[-1]["lr"]))

@@ -110,7 +110,8 @@ class Checkpointer(object):
         if logger is None:
             logger = logging.getLogger(__name__)
         self.logger = logger
-        self.current_val_best = None
+        self.current_val_best = 0.
+        self.last_saved_at = -1
 
 
     def remove_prev_val_best(self):
@@ -132,7 +133,10 @@ class Checkpointer(object):
     def save(self, name, **kwargs):
         if not self.save_dir:
             return
+        if self.last_saved_at == kwargs['epoch']:
+            return
 
+        self.last_saved_at = kwargs['epoch']
         data = {}
         data["model"] = self.model.state_dict()
         if self.optimizer is not None:
@@ -169,6 +173,7 @@ class Checkpointer(object):
                 else:
                     self.scheduler.load_state_dict(checkpoint.pop("scheduler"))
 
+        self.logger.info("previous best validation: {:.4f}".format(checkpoint['val_best']))
         # return any further checkpoint data
         return checkpoint
 
