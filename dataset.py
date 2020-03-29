@@ -45,12 +45,22 @@ class FashionProductImages(Dataset):
         self.test_meta = None
         self.val_frac = self.cfg.DATALOADER.FP_DATASET.VAL_DATA_FRACTION
 
-        self.transform = transforms.Compose([transforms.ToPILImage(),
-                                             transforms.RandomHorizontalFlip(p=0.5),
-                                             transforms.ToTensor(),
-                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                  std=[0.229, 0.224, 0.225]),
-                                             ])
+        if split == TRAIN:
+            self.transform = transforms.Compose([transforms.ToPILImage(),
+                                                 transforms.Resize(cfg.INPUT.MIN_SIZE),
+                                                 transforms.RandomHorizontalFlip(p=0.5),
+                                                 transforms.ToTensor(),
+                                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                      std=[0.229, 0.224, 0.225]),
+                                                 ])
+        else:
+            self.transform = transforms.Compose([transforms.ToPILImage(),
+                                                 transforms.Resize(cfg.INPUT.MIN_SIZE),
+                                                 transforms.ToTensor(),
+                                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                      std=[0.229, 0.224, 0.225]),
+                                                 ])
+
         self.split = split    # 'train', 'val', 'test'
         self.random_state = random_state
 
