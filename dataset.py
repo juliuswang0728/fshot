@@ -36,11 +36,10 @@ class FashionProductImages(Dataset):
         self.rootdir = self.cfg.DATALOADER.FP_DATASET.ROOTDIR
         self.topk = self.cfg.DATALOADER.FP_DATASET.TOPK
         self.bottomk = self.cfg.DATALOADER.FP_DATASET.BOTTOMK
-
-        self.meta = self._read_csv(os.path.join(self.rootdir, 'styles.csv'))
         self.imgroot = os.path.join(self.rootdir, 'images')
         assert os.path.exists(self.imgroot)
 
+        self.meta = self._read_csv(os.path.join(self.rootdir, 'styles.csv'))
         self.train_meta = None
         self.val_meta = None
         self.test_meta = None
@@ -86,6 +85,7 @@ class FashionProductImages(Dataset):
 
         id = self.meta.iloc[idx]['id']
         img_name = os.path.join(self.imgroot, '{}.jpg'.format(id))
+
         image = io.imread(img_name)
 
         if image.ndim == 2:
@@ -110,8 +110,15 @@ class FashionProductImages(Dataset):
                 print(new_line, file=fp)
 
         fp.seek(0)
+        meta = pd.read_csv(fp, sep='|')
 
-        return pd.read_csv(fp, sep='|')
+        drop_ind = [id for id in meta.loc[:, 'id']
+                    if not os.path.exists(os.path.join(self.imgroot, '{}.jpg'.format(id)))]
+
+        if len(drop_ind) > 0:
+            meta = meta.drop(drop_ind)
+
+        return meta
 
 
     def _get_top_classes_order(self, print_k=20):
