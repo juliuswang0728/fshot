@@ -24,25 +24,28 @@ else:
     device = "cpu"
 
 
-def do_eval(cfg, model, dataloader, epoch, logger):
-    logger.info('Start evaluating at epoch {}'.format(epoch))
+def do_eval(cfg, model, dataloader, logger, task):
     val_metrics = TransferNetMetrics(cfg)
 
     model.eval()
+    num_images = 0
     for iteration, data in enumerate(dataloader):
         inputs, targets = data['image'].to(device), data['label_articleType'].to(device)
         cls_scores = model(inputs, targets)
         val_metrics.accumulated_update(cls_scores, targets)
+        num_images += len(targets)
 
     val_metrics.gather_results()
-    logger.info('val overall acc: {:.4f}, mean class acc: {:.4f}'.format(val_metrics.overall_class_accuracy,
-                                                                         val_metrics.mean_class_accuracy))
+    logger.info('num of images: {}'.format(num_images))
+    logger.info('{} overall acc: {:.4f}, mean class acc: {:.4f}'.format(task,
+                                                                        val_metrics.overall_class_accuracy,
+                                                                        val_metrics.mean_class_accuracy))
 
     return val_metrics
 
 
 
-def do_train(cfg, model, train_dataloader, val_dataloader, logger, train_num_images, val_num_images):
+def do_train(cfg, model, train_dataloader, val_dataloader, logger):
     # define optimizer
     if cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR_BASE,
@@ -119,7 +122,8 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger, train_num_ima
                 )
 
         if epoch % cfg.TRAIN.VAL_EPOCH == 0:
-            val_metrics = do_eval(cfg, model, val_dataloader, epoch, logger)
+            logger.info('start evaluating at epoch {}'.format(epoch))
+            val_metrics = do_eval(cfg, model, val_dataloader, logger, 'validation')
             if val_metrics.mean_class_accuracy > checkpointer.current_val_best:
                 checkpointer.current_val_best = val_metrics.mean_class_accuracy
                 training_args['val_best'] = checkpointer.current_val_best
@@ -191,12 +195,13 @@ def main():
 
     train_dataloader = DataLoader(train_dataset, **train_dataset.params)
     val_dataloader = DataLoader(val_dataset, **val_dataset.params)
-    #test_dataloader = DataLoader(test_dataset, **test_dataset.params)
+    test_dataloader = DataLoader(test_dataset, **test_dataset.params)
 
     model = TransferNet(cfg, cfg.TRAIN.NUM_CLASSES, logger)
     model.to(device)
 
-    do_train(cfg, model, train_dataloader, val_dataloader, logger, train_dataset.num_images, val_dataset.num_images)
+    do_train(cfg, model, train_dataloader, val_dataloader, logger)
+    do_eval(cfg, model, test_dataloader, logger, 'test')
 
 if __name__ == "__main__":
     main()
