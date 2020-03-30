@@ -112,6 +112,7 @@ class Checkpointer(object):
         self.logger = logger
         self.current_val_best = 0.
         self.last_saved_at = -1
+        self.patience = 0
 
 
     def remove_prev_val_best(self):

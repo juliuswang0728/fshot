@@ -124,9 +124,18 @@ def do_train(cfg, model, train_dataloader, val_dataloader, logger, train_num_ima
                 checkpointer.current_val_best = val_metrics.mean_class_accuracy
                 training_args['val_best'] = checkpointer.current_val_best
                 checkpointer.save("model_{:04d}_val_{:.4f}".format(epoch, checkpointer.current_val_best), **training_args)
+                checkpointer.patience = 0
+            else:
+                checkpointer.patience += 1
 
-        if epoch == cfg.TRAIN.MAX_EPOCH or epoch % cfg.TRAIN.SAVE_CKPT_EPOCH == 0:
+            logger.info('current patience: {}/{}'.format(checkpointer.patience, cfg.TRAIN.PATIENCE))
+
+        if epoch == cfg.TRAIN.MAX_EPOCH or epoch % cfg.TRAIN.SAVE_CKPT_EPOCH == 0 or checkpointer.patience == cfg.TRAIN.PATIENCE:
             checkpointer.save("model_{:04d}".format(epoch), **training_args)
+
+        if checkpointer.patience == cfg.TRAIN.PATIENCE:
+            logger.info('Max patience triggered. Early terminate training')
+            break
 
         if epoch % cfg.TRAIN.LR_DECAY_EPOCH == 0:
             logger.info("lr decayed to {:.4f}".format(optimizer.param_groups[-1]["lr"]))

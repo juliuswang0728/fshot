@@ -57,6 +57,7 @@ _C.TRAIN.LR_DECAY_EPOCH = 1
 _C.TRAIN.NUM_CLASSES = 20
 _C.TRAIN.MAX_EPOCH = 5
 _C.TRAIN.SAVE_CKPT_EPOCH = 1
+_C.TRAIN.PATIENCE = 3           # early terminate after `TRAIN.PATIENCE` consecutive validation scores achieve no better
 _C.TRAIN.PRINT_PERIOD = 100     # in number of batches
 _C.TRAIN.VAL_EPOCH = 1
 _C.TRAIN.VAL_BATCH_SIZE = 64
