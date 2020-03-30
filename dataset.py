@@ -112,10 +112,17 @@ class FashionProductImages(Dataset):
         fp.seek(0)
         meta = pd.read_csv(fp, sep='|')
 
-        drop_ind = [id for id in meta.loc[:, 'id']
-                    if not os.path.exists(os.path.join(self.imgroot, '{}.jpg'.format(id)))]
+        self.logger.info('checking every image paths...')
+        if os.path.exists(os.path.join(self.rootdir, 'images.csv')):
+            images_csv = pd.read_csv(os.path.join(self.rootdir, 'images.csv'))
+            drop_ind = images_csv.loc[images_csv['link'] == 'undefined'].index.tolist()
+        else:
+            self.logger.info('(SLOW!) no images.csv exists, literally check every path to the image')
+            drop_ind = [id for id in meta.loc[:, 'id']
+                        if not os.path.exists(os.path.join(self.imgroot, '{}.jpg'.format(id)))]
 
         if len(drop_ind) > 0:
+            self.logger.info('dropping undefined images: {}'.format(drop_ind))
             meta = meta.drop(drop_ind)
 
         return meta
