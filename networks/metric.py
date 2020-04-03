@@ -10,24 +10,44 @@ class TransferNetMetrics(object):
         self.per_class_accuracy = {i: 0. for i in range(self.num_classes)}
         self.overall_class_accuracy = 0.
         self.mean_class_accuracy = 0.
+        self.topk = (1, 5)
+        self.accumulated_topk_corrects = {'top{}_acc'.format(k): 0. for k in self.topk}
 
 
     def __call__(self, logits, labels):
-        cls_acc = self._get_cls_accuracy(logits, labels)
-        out_metrics = {'cls_acc': cls_acc}
-
-        return out_metrics
+        return self._get_topk_accuracy(logits, labels)
 
 
-    def _get_cls_accuracy(self, logits, labels):
-        accuracy = (logits.argmax(1) == labels).float().mean().item()
+    def _get_topk_accuracy(self, logits, labels):
+        """Computes the precision@k for the specified values of k"""
+        maxk = max(self.topk)
+        batch_size = labels.size(0)
 
-        return accuracy
+        _, pred = logits.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(labels.view(1, -1).expand_as(pred))
+
+        res = {}
+        for k in self.topk:
+            correct_k = correct[:k].view(-1).float().sum(0)
+            score = correct_k.mul_(100.0 / batch_size)
+            res.update({'top{}_acc'.format(k): score})
+
+        return res
 
 
     def accumulated_update(self, logits, labels):
-        results = logits.argmax(1) == labels
+        maxk = max(self.topk)
+        _, pred = logits.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(labels.view(1, -1).expand_as(pred))
+        for k in self.topk:
+            correct_k = correct[:k].view(-1).float().sum(0)
+            self.accumulated_topk_corrects['top{}_acc'.format(k)] += correct_k
+
+        results = (logits.argmax(1) == labels).detach()
         for hit, label in zip(results, labels):
+            hit = hit.item()
             label = label.item()
             if hit:
                 self.accumulated_hits[label] += 1.
@@ -47,3 +67,61 @@ class TransferNetMetrics(object):
         self.overall_class_accuracy = sum_hits / total_samples
         self.mean_class_accuracy = mean_class_accuracy / self.num_classes
 
+        for k in self.topk:
+            score = self.accumulated_topk_corrects['top{}_acc'.format(k)] * 100.0 / total_samples
+            self.accumulated_topk_corrects['top{}_acc'.format(k)] = score
+
+
+
+class ProtoNetMetrics(object):
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.topk = (1, )
+        self.accumulated_topk_corrects = {'top{}_acc'.format(k): 0. for k in self.topk}
+        self.total_num_samples = 0.
+
+
+    def __call__(self, logits, labels=None):
+        return self._get_topk_accuracy(logits, labels)
+
+
+    def _get_topk_accuracy(self, logits, labels=None):
+        """Computes the precision@k for the specified values of k"""
+        maxk = max(self.topk)
+        k_way = logits.shape[1]
+        if labels is None:
+            labels = torch.LongTensor(range(0, k_way)).to(logits.device)
+
+        batch_size = labels.size(0)
+
+        _, pred = logits.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(labels.view(1, -1).expand_as(pred))
+
+        res = {}
+        for k in self.topk:
+            correct_k = correct[:k].view(-1).float().sum(0)
+            score = correct_k.mul_(100.0 / batch_size)
+            res.update({'top{}_acc'.format(k): score})
+
+        return res
+
+
+    def accumulated_update(self, logits, labels=None):
+        maxk = max(self.topk)
+        _, pred = logits.topk(maxk, 1, True, True)
+        pred = pred.t()
+        if labels is None:
+            labels = torch.LongTensor(range(0, logits.shape[1])).to(logits.device)
+        correct = pred.eq(labels.view(1, -1).expand_as(pred))
+        self.total_num_samples += logits.shape[0]
+
+        for k in self.topk:
+            correct_k = correct[:k].view(-1).float().sum(0)
+            self.accumulated_topk_corrects['top{}_acc'.format(k)] += correct_k
+
+
+    def gather_results(self):
+        for k in self.topk:
+            score = self.accumulated_topk_corrects['top{}_acc'.format(k)] * 100.0 / self.total_num_samples
+            self.accumulated_topk_corrects['top{}_acc'.format(k)] = score
