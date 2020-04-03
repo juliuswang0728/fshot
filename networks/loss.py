@@ -97,3 +97,20 @@ class TransferNetLoss(object):
         out_losses = {'cls_loss': cls_loss}
 
         return out_losses
+
+
+class ProtoNetLoss(object):
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.k_way = self.cfg.TRAIN.K_WAY
+        self.n_shot = self.cfg.TRAIN.N_SHOT
+        self.criterion_loss = nn.CrossEntropyLoss()
+
+    def __call__(self, logits, labels=None):
+        if labels is None:
+            labels = torch.LongTensor(range(0, self.k_way)).to(logits.device)
+
+        cls_loss = self.criterion_loss(logits, labels)
+        out_losses = {'cls_loss': cls_loss}
+
+        return out_losses
