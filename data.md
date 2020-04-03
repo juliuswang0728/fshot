@@ -3,8 +3,9 @@
 ```bash
 $PROJECT_ROOT (e.g. ~/fshot)
 └── ./data
-    └──fashion-product-images-small
+    └──fashion-dataset
        ├── images
        │   └── *.jpg
+       └── images.csv
        └── styles.csv
 ```
