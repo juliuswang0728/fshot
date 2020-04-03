@@ -29,6 +29,7 @@ def align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mappi
     # loaded_key string, if it matches
     # NOTE: Kaihua Tang, since some modules of current model will be initialized from assigned layer of
     # loaded model, we use load_mapping to do such operation
+
     mapped_current_keys = current_keys.copy()
     for i, key in enumerate(mapped_current_keys):
         for source_key, target_key in load_mapping.items():
@@ -82,7 +83,7 @@ def strip_prefix_if_present(state_dict, prefix):
     return stripped_state_dict
 
 
-def load_state_dict(model, loaded_state_dict, load_mapping):
+def load_state_dict(model, loaded_state_dict, load_mapping, strict=True):
     model_state_dict = model.state_dict()
     # if the state_dict comes from a model that was wrapped in a
     # DataParallel or DistributedDataParallel during serialization,
@@ -90,8 +91,18 @@ def load_state_dict(model, loaded_state_dict, load_mapping):
     loaded_state_dict = strip_prefix_if_present(loaded_state_dict, prefix="module.")
     align_and_update_state_dicts(model_state_dict, loaded_state_dict, load_mapping)
 
-    # use strict loading
-    model.load_state_dict(model_state_dict)
+    ignored_keys = []
+    for current_key in model.state_dict():
+        if current_key in loaded_state_dict:
+            if model.state_dict()[current_key].shape != loaded_state_dict[current_key].shape:
+                ignored_keys.append(current_key)
+                model_state_dict.pop(current_key)
+        else:
+            ignored_keys.append(current_key)
+
+    model.load_state_dict(model_state_dict, strict=strict)
+
+    return ignored_keys
 
 
 class Checkpointer(object):
@@ -101,7 +112,8 @@ class Checkpointer(object):
         optimizer=None,
         scheduler=None,
         save_dir="",
-        logger=None
+        logger=None,
+        monitor_unit='epoch',
     ):
         self.model = model
         self.optimizer = optimizer
@@ -110,6 +122,7 @@ class Checkpointer(object):
         if logger is None:
             logger = logging.getLogger(__name__)
         self.logger = logger
+        self.monitor_unit = monitor_unit
         self.current_val_best = 0.
         self.last_saved_at = -1
         self.patience = 0
@@ -134,10 +147,10 @@ class Checkpointer(object):
     def save(self, name, **kwargs):
         if not self.save_dir:
             return
-        if self.last_saved_at == kwargs['epoch']:
+        if self.last_saved_at == kwargs[self.monitor_unit]:
             return
 
-        self.last_saved_at = kwargs['epoch']
+        self.last_saved_at = kwargs[self.monitor_unit]
         data = {}
         data["model"] = self.model.state_dict()
         if self.optimizer is not None:
@@ -150,6 +163,17 @@ class Checkpointer(object):
         self.logger.info("Saving checkpoint to {}".format(save_file))
         torch.save(data, save_file)
         self.tag_last_checkpoint(save_file)
+
+
+    def load_checkpoint(self, path, load_mapping={}, strict=True):
+        self.logger.info("Loading checkpoint from {}".format(path))
+        self.logger.info("This ONLY loads model parameters and WILL NOT load optimizer/scheduler states")
+        if not strict:
+            self.logger.info("`strict` is set to False, ignore module parameters not in the checkpoint")
+        checkpoint = self._load_file(path)
+        ignored_keys = self._load_model(checkpoint, load_mapping, strict)
+        self.logger.info("Ignored keys are not loaded: {}".format(ignored_keys))
+
 
     def load(self, f=None, with_optim=True, update_schedule=False, load_mapping={}):
         if self.has_checkpoint():
@@ -170,11 +194,12 @@ class Checkpointer(object):
                 self.logger.info("Loading scheduler from {}".format(f))
                 if update_schedule:
                     #self.scheduler.last_epoch = checkpoint["iteration"]
-                    self.scheduler.last_epoch = checkpoint["epoch"]
+                    self.scheduler.last_epoch = checkpoint[self.monitor_unit]
                 else:
                     self.scheduler.load_state_dict(checkpoint.pop("scheduler"))
 
-        self.logger.info("previous best validation: {:.4f}".format(checkpoint['val_best']))
+        if 'val_best' in checkpoint:
+            self.logger.info("previous best validation: {:.4f}".format(checkpoint['val_best']))
         # return any further checkpoint data
         return checkpoint
 
@@ -202,5 +227,5 @@ class Checkpointer(object):
     def _load_file(self, f):
         return torch.load(f, map_location=torch.device("cpu"))
 
-    def _load_model(self, checkpoint, load_mapping):
-        load_state_dict(self.model, checkpoint.pop("model"), load_mapping)
+    def _load_model(self, checkpoint, load_mapping, strict=True):
+        return load_state_dict(self.model, checkpoint.pop("model"), load_mapping, strict)
