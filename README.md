@@ -1,5 +1,11 @@
 # fshot
 
+# Requirements
+* Python 3.7.4
+* pip install -r requirements
+or
+* pip install torch torchvision sklearn matplotlib pandas skimage scikit-image yacs
+
 # Data preparation
 * Follow [data.md](data.md) for instructions
 
