@@ -2,7 +2,7 @@
 Please check the results in xxxx
 
 ## Requirements
-* Python 3.7.4
+* Python 3.7.4, torch 1.4, torchvision 0.5
 * `pip install -r requirements`
 or
 * `pip install torch torchvision sklearn matplotlib pandas skimage scikit-image yacs`
