@@ -21,7 +21,7 @@ Configurable options are defined in `configs/defaults.py`. Those options are fir
 ## [Transfer learning] Fine-tuning base network on bottomK (e.g. 123) classes from some pre-trained model (e.g. `model_0012_val_0.8788.pth`)
 `python train_transfer.py --config=configs/yaml/res50_finetune.yaml DATALOADER.FP_DATASET.TOPK -1 DATALOADER.FP_DATASET.BOTTOMK 123 TRAIN.NUM_CLASSES 123 --load_ckpt ./checkpoints/res50_base/model_0012_val_0.8788.pth OUTPUT_DIR "./checkpoints/res50_finetune"`
 
-# [Transfer learning] Useful config options
+## [Transfer learning] Useful config options
 * Set `MODEL.NORM_FEATURES` and `MODEL.NORM_PROTOTYPES` both to `True` allows the model to learn classifier in a hypersphere space, while the radius of the space is controlled by `MODEL.RADIUS_PROTOTYPES`
 
 ## [Few-shot learning] Training with k-way, n-shot, testing with k-way, n-shot
