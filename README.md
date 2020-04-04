@@ -27,7 +27,7 @@ Configurable options are defined in `configs/defaults.py`. Those options are fir
 ## [Few-shot learning] Training with k-way, n-shot, testing with k-way, n-shot
 * `python train_fewshot.py --config=configs/yaml/res50_fewshot.yaml OUTPUT_DIR ./checkpoints/res50_fewshot_eucl_k2_n1 MODEL.PROTONET.DISTANCE_METRIC Euclidean TRAIN.K_WAY 2 TRAIN.N_SHOT 1 TEST.K_WAY 2 TEST.N_SHOT 1`
 
-or **cosine** as the distance metric with varying radiuses
+or **cosine** as the distance metric with varying radiuses (e.g. 4.)
 
 * `python train_fewshot.py --config=configs/yaml/res50_fewshot.yaml OUTPUT_DIR ./checkpoints/res50_fewshot_cos_r1_k2_n1 MODEL.PROTONET.DISTANCE_METRIC Cosine MODEL.PROTONET.COSINE_RADIUS 4. TRAIN.K_WAY 2 TRAIN.N_SHOT 1 TEST.K_WAY 2 TEST.N_SHOT 1`
 
