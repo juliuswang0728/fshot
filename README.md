@@ -16,7 +16,7 @@ Configurable options are defined in `configs/defaults.py`. Those options are fir
 ## [Transfer learning] Training base network on topK (e.g. 20) classes from pre-trained Resnet
 `python train_transfer.py --config=configs/yaml/res50.yaml DATALOADER.FP_DATASET.TOPK 20 TRAIN.NUM_CLASSES 20 OUTPUT_DIR ./checkpoints/res50_base `
 - [configs/yaml/res50.yaml](configs/yaml/res50.yaml) as a sample template
-- The training scripts keep log (`log.txt`) and checkpoints at `./checkpoints/res50_base`
+- The training scripts keep log (`log.txt`) and checkpoints at `OUTPUT_DIR`
 
 ## [Transfer learning] Fine-tuning base network on bottomK (e.g. 123) classes from some pre-trained model (e.g. `model_0012_val_0.8788.pth`)
 `python train_transfer.py --config=configs/yaml/res50_finetune.yaml DATALOADER.FP_DATASET.TOPK -1 DATALOADER.FP_DATASET.BOTTOMK 123 TRAIN.NUM_CLASSES 123 --load_ckpt ./checkpoints/res50_base/model_0012_val_0.8788.pth OUTPUT_DIR "./checkpoints/res50_finetune"`
