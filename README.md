@@ -35,3 +35,8 @@ or **cosine** as the distance metric with varying radiuses (e.g. 4.)
 * `python train_fewshot.py --config=configs/yaml/res50_fewshot.yaml OUTPUT_DIR ./checkpoints/res50_fewshot_cos_r1_k2_n1 MODEL.PROTONET.DISTANCE_METRIC Cosine MODEL.PROTONET.COSINE_RADIUS 4. TRAIN.K_WAY 2 TRAIN.N_SHOT 1 TEST.K_WAY 2 TEST.N_SHOT 1`
 
 * Note that it is possible to set different `k` and `n` for meta-training and meta-testing, e.g. `TRAIN.K_WAY 10 TRAIN.N_SHOT 1 TEST.K_WAY 2 TEST.N_SHOT 1`
+
+## [Few-shot learning] Test (with `--test_only` tag)
+```
+python train_fewshot.py --config=configs/yaml/res50_fewshot.yaml --load_ckpt ./checkpoints/res50_fewshot_cos_r8_k15_n1/model_005000.pth --test_only OUTPUT_DIR ./checkpoints/res50_fewshot_cos_r8_k15_n1 MODEL.PROTONET.DISTANCE_METRIC Cosine MODEL.PROTONET.COSINE_RADIUS 8. TEST.K_WAY 15 TEST.N_SHOT 1 
+```
