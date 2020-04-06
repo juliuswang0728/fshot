@@ -22,7 +22,9 @@ Configurable options are defined in `configs/defaults.py`. Those options are fir
 `python train_transfer.py --config=configs/yaml/res50_finetune.yaml DATALOADER.FP_DATASET.TOPK -1 DATALOADER.FP_DATASET.BOTTOMK 123 TRAIN.NUM_CLASSES 123 --load_ckpt ./checkpoints/res50_base/model_0012_val_0.8788.pth OUTPUT_DIR "./checkpoints/res50_finetune"`
 
 ## [Transfer learning] Test (with `--test_only` tag)
-python train_transfer.py --config=configs/yaml/res50_finetune.yaml --test_only DATALOADER.FP_DATASET.TOPK -1 DATALOADER.FP_DATASET.BOTTOMK 123 TRAIN.NUM_CLASSES 123 --load_ckpt ./checkpoints/res50_base/model_xxx.pth OUTPUT_DIR "./checkpoints/res50_finetune"
+```
+python train_transfer.py --config=configs/yaml/res50_finetune.yaml --test_only DATALOADER.FP_DATASET.TOPK -1 DATALOADER.FP_DATASET.BOTTOMK 123 TRAIN.NUM_CLASSES 123 --load_ckpt ./checkpoints/res50_finetune/model_xxx.pth OUTPUT_DIR "./checkpoints/res50_finetune"
+```
 
 ## [Transfer learning] Useful config options
 * Set `MODEL.NORM_FEATURES` and `MODEL.NORM_PROTOTYPES` both to `True` allows the model to learn classifier in a hypersphere space, while the radius of the space is controlled by `MODEL.RADIUS_PROTOTYPES`
