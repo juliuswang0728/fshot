@@ -60,6 +60,9 @@ class ProtoNet(BaseNet):
         feats = self.feature_extractor(inputs)
         feats = feats.squeeze(2).squeeze(2)
         feats = self.vis_embedding(feats)
+        if not self.training:
+            self.k_way = self.cfg.TEST.K_WAY
+            self.n_shot = self.cfg.TEST.N_SHOT
 
         support_feats = feats[0:self.k_way * self.n_shot]
         support_feats = support_feats.split(self.n_shot)
