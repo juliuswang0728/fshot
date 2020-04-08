@@ -1,10 +1,14 @@
+import os
 import torch
-
+import numpy as np
+import pickle
 
 class TransferNetMetrics(object):
     def __init__(self, cfg):
         self.cfg = cfg
+        self.out_path = os.path.join(cfg.OUTPUT_DIR, 'metrics.pkl')
         self.num_classes = cfg.TRAIN.NUM_CLASSES
+        self.accumulated_confusion_matrix = np.zeros((self.num_classes, self.num_classes))
         self.accumulated_hits = {i: 0. for i in range(self.num_classes)}
         self.num_samples_per_class = {i: 0. for i in range(self.num_classes)}
         self.per_class_accuracy = {i: 0. for i in range(self.num_classes)}
@@ -43,15 +47,16 @@ class TransferNetMetrics(object):
         correct = pred.eq(labels.view(1, -1).expand_as(pred))
         for k in self.topk:
             correct_k = correct[:k].view(-1).float().sum(0)
-            self.accumulated_topk_corrects['top{}_acc'.format(k)] += correct_k
+            self.accumulated_topk_corrects['top{}_acc'.format(k)] += correct_k.item()
 
-        results = (logits.argmax(1) == labels).detach()
-        for hit, label in zip(results, labels):
-            hit = hit.item()
-            label = label.item()
+        predictions = logits.argmax(1).detach().cpu().numpy()
+        labels = labels.detach().cpu().numpy()
+        results = (predictions == labels)
+        for hit, pred, label in zip(results, predictions, labels):
             if hit:
                 self.accumulated_hits[label] += 1.
             self.num_samples_per_class[label] += 1.
+            self.accumulated_confusion_matrix[label, pred] += 1.
 
 
     def gather_results(self):
@@ -71,6 +76,14 @@ class TransferNetMetrics(object):
             score = self.accumulated_topk_corrects['top{}_acc'.format(k)] * 100.0 / total_samples
             self.accumulated_topk_corrects['top{}_acc'.format(k)] = score
 
+        out_dict = {'per_class_accuracies': self.per_class_accuracy,
+                    'mean_class_accuracy': self.mean_class_accuracy,
+                    'topk': self.accumulated_topk_corrects,
+                    'cm': self.accumulated_confusion_matrix,
+                    'total_samples': total_samples}
+
+        with open(self.out_path, 'wb') as wp:
+            pickle.dump(out_dict, wp, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 class ProtoNetMetrics(object):
