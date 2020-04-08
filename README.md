@@ -1,5 +1,8 @@
-## Results
-Please check the results in xxxx
+## Main Results
+![Transfer learning on the bottom 123 classes](notebooks/results_123classes.png)
+
+![Few-shot learning](notebooks/results_fewshot.png)
+
 
 ## Requirements
 * Python 3.7.4, torch 1.4, torchvision 0.5
