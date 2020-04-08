@@ -35,13 +35,25 @@ def do_test(cfg, model, dataloader, logger, task, load_ckpt):
 
     model.eval()
     num_images = 0
+    meters = MetricLogger(delimiter="  ")
+
     logger.info('Start testing...')
     start_testing_time = time.time()
+    end = time.time()
     for iteration, data in enumerate(dataloader):
+        data_time = time.time() - end
         inputs, labels = torch.cat(data['images']).to(device), data['labels'].to(device)
         logits = model(inputs)
         val_metrics.accumulated_update(logits, labels)
         num_images += logits.shape[0]
+
+        batch_time = time.time() - end
+        end = time.time()
+        meters.update(time=batch_time, data=data_time)
+        eta_seconds = meters.time.global_avg * (len(dataloader) - iteration)
+        eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+        if iteration % 50 == 0 and iteration > 0:
+            logger.info('eta: {}, iter: {}/{}'.format(eta_string, iteration, len(dataloader)))
 
     val_metrics.gather_results()
     logger.info('num of images: {}'.format(num_images))
@@ -193,28 +205,23 @@ def main():
     # save overloaded model config in the output directory
     save_config(cfg, output_config_path)
 
+    model = architectures[cfg.MODEL.ARCHITECTURE](cfg, logger)
+    model.to(device)
+
     meta_test_dataset = FashionProductImagesFewShot(cfg=cfg, split='test',
                                                     k_way=cfg.TEST.K_WAY, n_shot=cfg.TEST.N_SHOT, logger=logger)
     meta_test_dataset.params['shuffle'] = False
     meta_test_dataset.params['batch_size'] = 1
     meta_test_dataloader = DataLoader(meta_test_dataset, **meta_test_dataset.params)
 
-    meta_train_dataset = FashionProductImagesFewShot(cfg=cfg, split='train',
-                                                     k_way=cfg.TRAIN.K_WAY, n_shot=cfg.TRAIN.N_SHOT, logger=logger)
-
-    meta_train_dataloader = DataLoader(meta_train_dataset, **meta_train_dataset.params)
-    model = architectures[cfg.MODEL.ARCHITECTURE](cfg, logger)
-    model.to(device)
-
     if args.test_only:
         do_test(cfg, model, meta_test_dataloader, logger, 'test', args.load_ckpt)
     else:
+        meta_train_dataset = FashionProductImagesFewShot(cfg=cfg, split='train',
+                                                         k_way=cfg.TRAIN.K_WAY, n_shot=cfg.TRAIN.N_SHOT, logger=logger)
+        meta_train_dataloader = DataLoader(meta_train_dataset, **meta_train_dataset.params)
+
         do_train(cfg, model, meta_train_dataloader, logger, args.load_ckpt)
-        meta_test_dataset = FashionProductImagesFewShot(cfg=cfg, split='test',
-                                                        k_way=cfg.TEST.K_WAY, n_shot=cfg.TEST.N_SHOT, logger=logger)
-        meta_test_dataset.params['shuffle'] = False
-        meta_test_dataset.params['batch_size'] = 1
-        meta_test_dataloader = DataLoader(meta_test_dataset, **meta_test_dataset.params)
         do_test(cfg, model, meta_test_dataloader, logger, 'test', None)
 
 
