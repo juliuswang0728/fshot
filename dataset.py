@@ -155,11 +155,38 @@ class FashionProductImages(Dataset):
         return stats
 
 
+    def _dump_data_splits_stats(self, stats, target_classes):
+        meta = self.meta.loc[self.meta['year'] % 2 == 0]  # even year
+        train_meta = meta[meta['articleType'].isin(target_classes)]
+        train_dict = train_meta.groupby('articleType')['id'].count().sort_values().to_dict()
+
+        meta = self.meta.loc[self.meta['year'] % 2 == 1]  # odd year
+        test_meta = meta[meta['articleType'].isin(target_classes)]
+        test_dict = test_meta.groupby('articleType')['id'].count().sort_values().to_dict()
+
+        ascending_ordered_classes = list(stats.keys())
+        train_stats = {k: 0 for k in stats.keys()}
+        test_stats = {k: 0 for k in stats.keys()}
+
+        for cls in ascending_ordered_classes:
+            if cls in train_dict:
+                train_stats[cls] = train_dict[cls]
+            if cls in test_dict:
+                test_stats[cls] = test_dict[cls]
+
+        out_dict = {'stats': stats, 'train_stats': train_stats, 'test_stats': test_stats}
+        import pickle
+        with open('data_stats.pkl', 'wb') as wp:
+            pickle.dump(out_dict, wp, protocol=pickle.HIGHEST_PROTOCOL)
+
+
     def _prepare_meta_split(self):
         split = self.split
         # `stats` contains all classes of interest
         stats = self._get_top_classes_order()
         target_classes = list(stats.keys())
+
+        #self._dump_data_splits_stats(stats, target_classes)
 
         self.logger.info('preparing {} data...'.format(split))
         if split == TRAIN or split == VAL:
@@ -309,7 +336,6 @@ class FashionProductImagesFewShot(Dataset):
 
             meta_set[cls] += meta_samples
             samples += meta_samples
-
         samples += [idx]    # add query sample to the end
         return samples, label
 
